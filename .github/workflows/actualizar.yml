@@ -30,6 +30,8 @@ jobs:
       - name: Descargar datos de YouTube y construir la web
         env:
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YT_WEB_KEY: ${{ secrets.YT_WEB_KEY }}
         run: |
           python scripts/fetch.py
           python scripts/build.py

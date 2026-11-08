@@ -115,6 +115,19 @@ img{max-width:100%;display:block}
 .tabs a{flex:1;text-align:center;padding:10px 0 12px;text-decoration:none;color:var(--muted);font-size:12.5px;font-weight:700}
 .tabs a span{display:block;font-size:22px;line-height:1.2}
 .tabs a[aria-current="page"]{color:var(--hot2)}
+
+.form{display:flex;gap:8px;margin:6px 0 4px}
+.form input{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;min-width:0}
+.form .btn{flex:0}
+.chead{display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center}
+.chead .av{width:64px;height:64px}
+.chead h3{font-family:var(--font-d);font-size:21px;margin:0;line-height:1.2;overflow-wrap:anywhere}
+.kw{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.kw span{font-size:12.5px;background:var(--chip);border-radius:999px;padding:3px 10px;color:var(--muted)}
+.spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--hot2);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.err{color:var(--hot2)}
+.tabs a{font-size:11.5px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -169,6 +182,34 @@ img{max-width:100%;display:block}
     </div>
   </section>
 
+  <section id="v-analizar" hidden>
+    <p class="lead">Analiza cualquier canal</p>
+    <p class="sub">Pega el @ o el enlace de un canal de YouTube y te enseñamos qué le funciona, canales parecidos y virales de su temática.</p>
+    <form class="form" id="anForm">
+      <input id="anQ" placeholder="@canal o enlace de YouTube" autocomplete="off" autocapitalize="off" aria-label="Canal a analizar">
+      <button class="btn hot" type="submit">Analizar</button>
+    </form>
+    <p class="note" id="anNote"></p>
+    <div id="anOut"></div>
+  </section>
+
+  <section id="v-ideas" hidden>
+    <p class="lead">Ideas para tu próximo vídeo</p>
+    <p class="sub">La IA cruza las tendencias de hoy y los virales de tu nicho con tu temática.</p>
+    <div class="box">
+      <div class="form" style="margin:0">
+        <input id="ideaNiche" value="Estafas y ciberseguridad" aria-label="Tu temática">
+        <button class="btn hot" id="genBtn" type="button">Generar</button>
+      </div>
+      <div class="seg" role="group" aria-label="Tendencias de" style="margin-top:10px">
+        <button data-ic="ES" aria-pressed="true">Tendencias 🇪🇸</button>
+        <button data-ic="US" aria-pressed="false">Tendencias 🇺🇸</button>
+      </div>
+      <p class="note" id="genNote">Escribe tu temática y pulsa “Generar”.</p>
+    </div>
+    <div class="box" id="ideas" hidden></div>
+  </section>
+
 </div>
 
 <div>
@@ -182,7 +223,9 @@ img{max-width:100%;display:block}
 <div class="tabs">
   <nav aria-label="Secciones">
     <a href="#tendencias" data-view="tendencias"><span aria-hidden="true">📈</span>Tendencias</a>
-    <a href="#canal" data-view="canal"><span aria-hidden="true">🔎</span>Mi canal</a>
+    <a href="#canal" data-view="canal"><span aria-hidden="true">👤</span>Mi canal</a>
+    <a href="#analizar" data-view="analizar"><span aria-hidden="true">🔍</span>Analizar</a>
+    <a href="#ideas" data-view="ideas"><span aria-hidden="true">💡</span>Ideas</a>
   </nav>
 </div>
 
@@ -234,7 +277,7 @@ function renderMe(){
       <div class="stat"><b>${fmt(m.views)}</b><span>visitas</span></div>
       <div class="stat"><b>${m.videos}</b><span>vídeos</span></div>
     </div>
-    <p class="note">Los datos se actualizan solos cada mañana.</p>`;
+    <p class="note">Los datos se actualizan solos cada mañana. Para analizar otro canal, usa la pestaña “Analizar”.</p>`;
   $("#creators").innerHTML = DATA.channels.map(c=>`
     <a class="creator" href="https://www.youtube.com/channel/${c.id}" target="_blank" rel="noopener">
       <span class="av">${c.img?`<img src="${c.img}" alt="">`:""}</span>
@@ -254,7 +297,7 @@ function renderNiche(){
 
 /* ---------- hoja de vídeo ---------- */
 function findVid(id){
-  return [...DATA.trends.ES, ...DATA.trends.US, ...DATA.niche].find(v=>v.id===id);
+  return LIVE[id] || [...DATA.trends.ES, ...DATA.trends.US, ...DATA.niche].find(v=>v.id===id);
 }
 function openVid(id){
   const v = findVid(id); if(!v) return;
@@ -277,8 +320,213 @@ function openVid(id){
 }
 function closeSheet(){ document.body.classList.remove("open"); }
 
+/* ---------- funciones en vivo (YouTube + Gemini) ---------- */
+const GEMINI_KEY = "__GEMINI_KEY__";
+const YT_WEB_KEY = "__YT_WEB_KEY__";
+const LIVE = {};
+const STOP = new Set("para como cómo esta este esto estos estas pero porque porqué sobre todo todos todas desde hasta cuando donde dónde quien quién tiene tienen hacer hace hacen más menos muy nada solo sólo también video vídeo videos vídeos shorts short canal parte live directo nuevo nueva mejor mejores peor aquí ahora cada otra otro otros otras entre sido será eres estoy está están with that this your from have what when will about just like they them their there them part official oficial episodio capitulo capítulo full trailer reaccionando reacciono reacción".split(" "));
+
+function isoDur(s){ const m=/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(s||""); if(!m) return 0; const [d,h,mi,se]=m.slice(1).map(x=>+(x||0)); return d*86400+h*3600+mi*60+se; }
+function normVid(v, subs){
+  const s=v.snippet, st=v.statistics||{};
+  const hrs=Math.max(1,(Date.now()-new Date(s.publishedAt))/36e5), views=+(st.viewCount||0), dur=isoDur(v.contentDetails&&v.contentDetails.duration);
+  const o={id:v.id,t:s.title,c:s.channelTitle,cid:s.channelId,views,likes:+(st.likeCount||0),com:+(st.commentCount||0),
+    vph:Math.round(views/hrs),h:Math.round(hrs),f:dur&&dur<=180?"short":"video",cat:"",subs:subs??null,
+    img:(s.thumbnails.medium||s.thumbnails.high||s.thumbnails.default||{}).url||""};
+  if(o.subs) o.ratio=Math.round(views/o.subs*10)/10;
+  LIVE[o.id]=o; return o;
+}
+async function ytApi(path, params){
+  if(!YT_WEB_KEY || YT_WEB_KEY.startsWith("__")) throw Object.assign(new Error("nokey"),{reason:"nokey"});
+  const u=new URL("https://www.googleapis.com/youtube/v3/"+path);
+  Object.entries({...params,key:YT_WEB_KEY}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const r=await fetch(u); const j=await r.json().catch(()=>({}));
+  if(!r.ok){ const reason=j.error&&j.error.errors&&j.error.errors[0]&&j.error.errors[0].reason; throw Object.assign(new Error((j.error&&j.error.message)||r.status),{reason}); }
+  return j;
+}
+async function gemini(prompt){
+  if(!GEMINI_KEY || GEMINI_KEY.startsWith("__")) throw Object.assign(new Error("nokey"),{reason:"nokey"});
+  let last;
+  for(const m of ["gemini-flash-latest","gemini-flash-lite-latest"]){
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:"application/json",temperature:0.9}})});
+    if(r.status===429||r.status>=500){ last=r.status; continue; }
+    const j=await r.json();
+    if(!r.ok) throw new Error((j.error&&j.error.message)||r.status);
+    const txt=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||"").join("");
+    return JSON.parse(txt.replace(/```json|```/g,"").trim());
+  }
+  throw Object.assign(new Error("busy"),{reason:last===429?"rate":"busy"});
+}
+function ideasHTML(arr){ return arr.slice(0,6).map(o=>`<div class="idea"><b>${esc(String(o.t||""))}</b><p>${esc(String(o.p||""))}</p></div>`).join(""); }
+function aiError(e){
+  if(e.reason==="nokey") return "El generador de ideas aún no está configurado.";
+  if(e.reason==="rate") return "Se han hecho muchas peticiones seguidas. Espera un minuto y vuelve a intentarlo.";
+  return "No se han podido generar ideas ahora mismo. Vuelve a intentarlo.";
+}
+
+/* ---------- pestaña Ideas ---------- */
+let ideaCountry="ES";
+$("#genBtn").addEventListener("click", async ()=>{
+  const niche=$("#ideaNiche").value.trim()||"mi temática";
+  const tr=[...DATA.trends[ideaCountry]].sort((a,b)=>b.vph-a.vph).slice(0,15).map(v=>`- ${v.t} (${v.cat}, ${fmt(v.vph)} visitas/hora)`).join("\n");
+  const nv=DATA.niche.slice(0,10).map(v=>`- ${v.t} (${fmt(v.views)} visitas)`).join("\n");
+  const btn=$("#genBtn"); btn.disabled=true; btn.textContent="…";
+  $("#genNote").innerHTML='<span class="spin"></span>Pensando ideas a partir de los datos de hoy…';
+  try{
+    const out=await gemini(`Eres estratega de YouTube para creadores en español de España.
+Vídeos en tendencia hoy en ${ideaCountry==="ES"?"España":"Estados Unidos"}:
+${tr}
+
+Vídeos con más visitas este mes en el nicho de estafas y ciberseguridad (referencia de formatos que funcionan):
+${nv}
+
+Temática del creador: "${niche}".
+Propón 5 ideas de vídeo concretas para esa temática que aprovechen formatos, ganchos o temas de esas tendencias. Mezcla vídeos largos y Shorts. Títulos cortos y con gancho, en español de España.
+Responde SOLO con un array JSON: [{"t":"título (indica [Short] si es un Short)","p":"una frase: qué tendencia aprovecha y por qué puede funcionar"}]`);
+    if(Array.isArray(out)&&out.length){ $("#ideas").hidden=false; $("#ideas").innerHTML=ideasHTML(out); $("#genNote").textContent=`Ideas para “${niche}”. Pulsa otra vez para generar más.`; }
+    else $("#genNote").textContent="No se han podido generar ideas. Vuelve a intentarlo.";
+  }catch(e){ $("#genNote").innerHTML=`<span class="err">${aiError(e)}</span>`; }
+  finally{ btn.disabled=false; btn.textContent="Generar"; }
+});
+
+/* ---------- pestaña Analizar ---------- */
+function parseQ(s){
+  s=s.trim(); let m;
+  if(m=s.match(/channel\/(UC[\w-]{22})/)) return {id:m[1]};
+  if(m=s.match(/youtube\.com\/(@[^/?#\s]+)/i)) return {handle:decodeURIComponent(m[1])};
+  if(/^UC[\w-]{22}$/.test(s)) return {id:s};
+  if(s.startsWith("@")) return {handle:s.split(/\s/)[0]};
+  return {name:s};
+}
+function keywords(titles, chName){
+  const cnt={};
+  titles.join(" ").toLowerCase().normalize("NFC").replace(/[^\p{L}\s]/gu," ").split(/\s+/)
+    .filter(w=>w.length>3&&!STOP.has(w)&&!chName.toLowerCase().includes(w)).forEach(w=>cnt[w]=(cnt[w]||0)+1);
+  return Object.entries(cnt).filter(x=>x[1]>1).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]);
+}
+let ANA=null;
+$("#anForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const q=$("#anQ").value; if(!q.trim()) return;
+  const note=$("#anNote"), out=$("#anOut"); out.innerHTML="";
+  note.innerHTML='<span class="spin"></span>Buscando el canal…';
+  try{
+    const p=parseQ(q); let ch;
+    const parts="snippet,statistics,contentDetails";
+    if(p.id) ch=(await ytApi("channels",{part:parts,id:p.id})).items?.[0];
+    else if(p.handle) ch=(await ytApi("channels",{part:parts,forHandle:p.handle})).items?.[0];
+    else{
+      const s=(await ytApi("search",{part:"snippet",type:"channel",q:p.name,maxResults:1})).items?.[0];
+      if(s) ch=(await ytApi("channels",{part:parts,id:s.snippet.channelId})).items?.[0];
+    }
+    if(!ch){ note.innerHTML='<span class="err">No he encontrado ese canal. Prueba con su @ exacto o con el enlace del canal.</span>'; return; }
+    const subs=+(ch.statistics.subscriberCount||0);
+    note.innerHTML='<span class="spin"></span>Analizando sus vídeos…';
+    const upl=ch.contentDetails?.relatedPlaylists?.uploads;
+    let vids=[];
+    if(upl){
+      const pl=await ytApi("playlistItems",{part:"contentDetails",playlistId:upl,maxResults:50}).catch(()=>({items:[]}));
+      const ids=(pl.items||[]).map(i=>i.contentDetails.videoId);
+      if(ids.length) vids=((await ytApi("videos",{part:"snippet,statistics,contentDetails",id:ids.join(",")})).items||[]).map(v=>normVid(v,subs));
+    }
+    const kws=keywords(vids.map(v=>v.t), ch.snippet.title);
+    const query=(kws.length?kws.slice(0,3):[ch.snippet.title]).join("|");
+    note.innerHTML='<span class="spin"></span>Buscando canales parecidos y virales de su temática…';
+    const lang=(ch.snippet.defaultLanguage||"es").slice(0,2);
+    const after=new Date(Date.now()-30*864e5).toISOString().replace(/\.\d+Z$/,"Z");
+    const [sc, sv]=await Promise.all([
+      ytApi("search",{part:"snippet",type:"channel",q:query,maxResults:15,relevanceLanguage:lang}),
+      ytApi("search",{part:"snippet",type:"video",q:query,order:"viewCount",publishedAfter:after,maxResults:20,relevanceLanguage:lang})
+    ]);
+    const cids=[...new Set((sc.items||[]).map(i=>i.snippet.channelId).filter(id=>id!==ch.id))];
+    const sims=cids.length?((await ytApi("channels",{part:"snippet,statistics",id:cids.join(",")})).items||[]):[];
+    const vidIds=(sv.items||[]).map(i=>i.id.videoId).filter(Boolean);
+    let viral=vidIds.length?((await ytApi("videos",{part:"snippet,statistics,contentDetails",id:vidIds.join(",")})).items||[]):[];
+    const vc=[...new Set(viral.map(v=>v.snippet.channelId))];
+    const vsubs={}; if(vc.length) ((await ytApi("channels",{part:"statistics",id:vc.join(",")})).items||[]).forEach(c=>vsubs[c.id]=+(c.statistics.subscriberCount||0));
+    viral=viral.map(v=>normVid(v,vsubs[v.snippet.channelId])).filter(v=>v.cid!==ch.id).sort((a,b)=>b.views-a.views).slice(0,12);
+    ANA={ch,subs,vids,kws,viral,sims};
+    renderAnalysis(); note.textContent="";
+  }catch(err){
+    note.innerHTML=`<span class="err">${err.reason==="nokey"?"El analizador aún no está configurado (falta la clave de YouTube para web).":
+      err.reason==="quotaExceeded"?"Se ha agotado la cuota gratuita de YouTube de hoy. Vuelve a intentarlo mañana.":
+      "No se ha podido analizar el canal. Revisa el @ o el enlace y vuelve a intentarlo."}</span>`;
+  }
+});
+function renderAnalysis(){
+  const {ch,subs,vids,kws,viral,sims}=ANA;
+  const views=vids.map(v=>v.views).sort((a,b)=>a-b);
+  const med=views.length?views[Math.floor(views.length/2)]:0;
+  const avg=views.length?Math.round(views.reduce((a,b)=>a+b,0)/views.length):0;
+  const shorts=vids.filter(v=>v.f==="short").length;
+  const last30=vids.filter(v=>v.h<=720).length;
+  const eng=vids.length?(vids.reduce((a,v)=>a+(v.views?(v.likes+v.com)/v.views:0),0)/vids.length*100).toFixed(1).replace(".",","):"—";
+  const best=[...vids].sort((a,b)=>b.views-a.views).slice(0,6);
+  const av=(ch.snippet.thumbnails.medium||ch.snippet.thumbnails.default||{}).url||"";
+  const simList=sims.map(c=>({c,s:+(c.statistics.subscriberCount||0)})).filter(x=>!c_hidden(x.c)).sort((a,b)=>b.s-a.s).slice(0,10);
+  $("#anOut").innerHTML=`
+    <div class="me">
+      <div class="chead"><span class="av">${av?`<img src="${av}" alt="">`:""}</span>
+        <div><h3>${esc(ch.snippet.title)}</h3><div class="meta">${esc(ch.snippet.customUrl||"")} ${FLAG[ch.snippet.country]||""}</div></div></div>
+      <div class="stats">
+        <div class="stat"><b>${fmt(subs)}</b><span>suscriptores</span></div>
+        <div class="stat"><b>${fmt(+ch.statistics.viewCount)}</b><span>visitas totales</span></div>
+        <div class="stat"><b>${fmt(+ch.statistics.videoCount)}</b><span>vídeos</span></div>
+        <div class="stat"><b>${fmt(med)}</b><span>visitas típicas por vídeo</span></div>
+        <div class="stat"><b>${last30}</b><span>vídeos en 30 días</span></div>
+        <div class="stat"><b>${eng} %</b><span>interacción media</span></div>
+      </div>
+      <p class="note">Basado en sus últimos ${vids.length} vídeos${vids.length?` (${shorts} Shorts y ${vids.length-shorts} vídeos)`:""}. Media de ${fmt(avg)} visitas.</p>
+      ${kws.length?`<div class="kw">${kws.map(k=>`<span>${esc(k)}</span>`).join("")}</div>`:""}
+      <div class="cta" style="margin-top:12px"><button class="btn hot" id="anIdeas">💡 Ideas para este canal</button><a class="btn ghost" href="https://www.youtube.com/channel/${ch.id}" target="_blank" rel="noopener">Abrir canal</a></div>
+      <div id="anIdeasOut" class="box" style="margin:12px 0 0" hidden></div>
+    </div>
+    <p class="lead">Sus vídeos que mejor funcionan</p>
+    <p class="sub">De sus últimos vídeos, los que más visitas han conseguido.</p>
+    <ul class="list">${best.length?best.map((v,i)=>row(v,i,1,`<span class="meta" style="display:block;margin-top:3px">${subs?`Visitas = <span class="ratio">${String(v.ratio>=10?Math.round(v.ratio):v.ratio).replace(".",",")}×</span> sus suscriptores`:""}</span>`)).join(""):'<li class="sub">Este canal todavía no tiene vídeos públicos.</li>'}</ul>
+    <p class="lead">Canales parecidos</p>
+    <p class="sub">Canales que hablan de lo mismo, ordenados por tamaño.</p>
+    <div>${simList.length?simList.map(({c,s})=>`
+      <a class="creator" href="https://www.youtube.com/channel/${c.id}" target="_blank" rel="noopener">
+        <span class="av"><img src="${(c.snippet.thumbnails.default||{}).url||""}" alt="" loading="lazy"></span>
+        <span><b>${esc(c.snippet.title)}</b> ${FLAG[c.snippet.country]||""}
+          <span class="meta" style="display:block">${fmt(s)} subs · ${fmt(+c.statistics.videoCount)} vídeos</span>
+          <span class="desc">${esc((c.snippet.description||"").slice(0,140))}</span></span>
+        <span class="match" style="font-size:15px">${fmt(s)}<small>subs</small></span>
+      </a>`).join(""):'<p class="sub">No he encontrado canales parecidos.</p>'}</div>
+    <p class="lead">Virales de su temática</p>
+    <p class="sub">Los vídeos más vistos del último mes sobre sus temas.</p>
+    <ul class="list">${viral.length?viral.map((v,i)=>row(v,i,1,`<span class="meta" style="display:block;margin-top:3px">${v.subs?`Visitas = <span class="ratio">${String(v.ratio>=10?Math.round(v.ratio):v.ratio).replace(".",",")}×</span> sus suscriptores`:""}</span>`)).join(""):'<li class="sub">No hay virales recientes de esta temática.</li>'}</ul>`;
+  $("#anIdeas").addEventListener("click", anIdeas);
+}
+function c_hidden(c){ return +(c.statistics.videoCount||0)<3; }
+async function anIdeas(){
+  const {ch,vids,kws,viral}=ANA; const box=$("#anIdeasOut"), btn=$("#anIdeas");
+  box.hidden=false; box.innerHTML='<span class="spin"></span>Pensando ideas para este canal…'; btn.disabled=true;
+  const best=[...vids].sort((a,b)=>b.views-a.views).slice(0,8).map(v=>`- ${v.t} (${fmt(v.views)} visitas)`).join("\n");
+  const vir=viral.slice(0,8).map(v=>`- ${v.t} (${fmt(v.views)} visitas)`).join("\n");
+  const tr=[...DATA.trends.ES].sort((a,b)=>b.vph-a.vph).slice(0,10).map(v=>`- ${v.t}`).join("\n");
+  try{
+    const out=await gemini(`Eres estratega de YouTube. Analiza este canal y propón ideas.
+Canal: ${ch.snippet.title}. Temas: ${kws.join(", ")||"desconocidos"}. Suscriptores: ${ANA.subs}.
+Sus vídeos que mejor funcionan:
+${best||"(sin datos)"}
+Virales recientes de su temática en otros canales:
+${vir||"(sin datos)"}
+Tendencias de hoy en España:
+${tr}
+Propón 5 ideas de vídeo concretas para ESTE canal, que repitan lo que ya le funciona y aprovechen los virales y tendencias. Escribe en el idioma del canal (por defecto español de España). Títulos cortos con gancho.
+Responde SOLO con un array JSON: [{"t":"título (indica [Short] si es un Short)","p":"una frase: en qué te basas y por qué puede funcionar"}]`);
+    box.innerHTML=Array.isArray(out)&&out.length?ideasHTML(out):"No se han podido generar ideas. Vuelve a intentarlo.";
+  }catch(e){ box.innerHTML=`<span class="err">${aiError(e)}</span>`; }
+  finally{ btn.disabled=false; }
+}
+document.addEventListener("click", e=>{ const b=e.target.closest("[data-ic]"); if(b){ ideaCountry=b.dataset.ic; press("[data-ic]",b); } });
+
 /* ---------- navegación y eventos ---------- */
-const VIEWS=["tendencias","canal"];
+const VIEWS=["tendencias","canal","analizar","ideas"];
 function route(){
   const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "tendencias";
   VIEWS.forEach(n => $("#v-"+n).hidden = n!==v);

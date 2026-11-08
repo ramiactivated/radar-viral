@@ -11,5 +11,6 @@ out = {"updated": d["updated"], "me": d["me"],
 t = open(os.path.join(ROOT, "scripts", "template.html"), encoding="utf-8").read()
 os.makedirs("_site", exist_ok=True)
 html = t.replace("__DATA__", json.dumps(out, ensure_ascii=False).replace("</", "<\\/"))
+html = html.replace("__GEMINI_KEY__", os.environ.get("GEMINI_API_KEY", "")).replace("__YT_WEB_KEY__", os.environ.get("YT_WEB_KEY", ""))
 open("_site/index.html", "w", encoding="utf-8").write(html)
 print("ok", len(html))
