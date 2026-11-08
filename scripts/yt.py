@@ -8,6 +8,9 @@ def api(path, **p):
             with urllib.request.urlopen(u, timeout=30) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="ignore")
+            if "per day" in body:
+                raise
             if e.code in (429, 500, 502, 503) and intento < 5:
                 time.sleep(5 * 2 ** intento)   # 5, 10, 20, 40, 80 s
                 continue

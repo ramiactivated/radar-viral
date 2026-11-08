@@ -1,5 +1,12 @@
 import json, re, base64, urllib.request, datetime as dt
 from yt import api
+import urllib.error
+SEARCH_FAIL=[]
+def ssearch(**p):
+    try:
+        return api('search',**p)
+    except urllib.error.HTTPError as e:
+        SEARCH_FAIL.append(e.code); return {'items':[]}
 import os
 CFG=json.load(open(os.path.join(os.path.dirname(__file__),'..','config.json'),encoding='utf-8'))
 now = dt.datetime.now(dt.timezone.utc)
@@ -8,10 +15,7 @@ def iso_dur(s):
     d,h,mi,se = [int(x or 0) for x in m.groups()] if m else (0,0,0,0)
     return d*86400+h*3600+mi*60+se
 def thumb(vid):
-    try:
-        with urllib.request.urlopen(f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg", timeout=10) as r:
-            return "data:image/jpeg;base64,"+base64.b64encode(r.read()).decode()
-    except Exception: return ""
+    return f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"
 def vids(ids):
     out=[]
     for k in range(0,len(ids),50):
@@ -47,7 +51,7 @@ data["me"]=dict(id=me['id'],name=me['snippet']['title'],handle=CFG['handle'],
 Q=CFG["channel_queries"]
 hits={}
 for q in Q:
-    for it in api('search',part='snippet',type='channel',q=q,regionCode='ES',relevanceLanguage='es',maxResults=15)['items']:
+    for it in ssearch(part='snippet',type='channel',q=q,regionCode='ES',relevanceLanguage='es',maxResults=15)['items']:
         cid=it['snippet']['channelId']; hits[cid]=hits.get(cid,0)+1
 cinfo=chans(list(hits))
 KW=["estafa","timos","timador","fraude","ciberseg","hacker","seguridad","phishing","scam","engaño"]
@@ -61,10 +65,7 @@ for cid,c in cinfo.items():
     if kw==0: continue
     score=min(99,round(45+hits[cid]*9+kw*7))
     th=c['snippet']['thumbnails'].get('default',{}).get('url','')
-    img=""
-    try:
-        with urllib.request.urlopen(th,timeout=10) as r: img="data:image/jpeg;base64,"+base64.b64encode(r.read()).decode()
-    except Exception: pass
+    img=th
     sim.append(dict(id=cid,n=c['snippet']['title'],h=c['snippet'].get('customUrl',''),subs=subs,views=int(st.get('viewCount',0)),
         videos=vids_,d=c['snippet'].get('description','')[:140],m=score,country=c['snippet'].get('country',''),img=img))
 sim.sort(key=lambda x:(-x['m'],-x['subs']))
@@ -73,7 +74,7 @@ data["niche"]["channels"]=sim[:15]
 after=(now-dt.timedelta(days=30)).strftime('%Y-%m-%dT%H:%M:%SZ')
 vid_ids=set()
 for q,extra in CFG["video_queries"]:
-    for it in api('search',part='snippet',type='video',q=q,order='viewCount',publishedAfter=after,relevanceLanguage='es',regionCode='ES',maxResults=20,**extra)['items']:
+    for it in ssearch(part='snippet',type='video',q=q,order='viewCount',publishedAfter=after,relevanceLanguage='es',regionCode='ES',maxResults=20,**extra)['items']:
         vid_ids.add(it['id']['videoId'])
 nv=vids(list(vid_ids))
 data["niche_raw"]=nv
@@ -97,5 +98,13 @@ nvn=[v for v in nvn if ok(v)]
 nvn.sort(key=lambda v:-v['views'])
 data["niche"]["videos"]=nvn[:24]
 del data["niche_raw"]
+LAST=os.path.join(os.path.dirname(__file__),'..','data','last.json')
+prev=json.load(open(LAST,encoding='utf-8')) if os.path.exists(LAST) else None
+if prev:
+    if SEARCH_FAIL or len(data['niche'].get('channels',[]))<3: data['niche']['channels']=prev['niche']['channels']; print('canales: uso datos anteriores')
+    if SEARCH_FAIL or len(data['niche'].get('videos',[]))<5: data['niche']['videos']=prev['niche']['videos']; print('virales: uso datos anteriores')
+os.makedirs(os.path.dirname(LAST),exist_ok=True)
+json.dump(data,open(LAST,'w',encoding='utf-8'),ensure_ascii=False,indent=0)
 json.dump(data,open('data.json','w',encoding='utf-8'),ensure_ascii=False)
+if SEARCH_FAIL: print('Aviso: búsquedas fallidas', SEARCH_FAIL)
 print("ES",len(data["trends"]["ES"]),"US",len(data["trends"]["US"]),"similar",len(sim),"nicho",len(nvn))
