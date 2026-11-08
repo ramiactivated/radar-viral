@@ -436,9 +436,11 @@ $("#anForm").addEventListener("submit", async e=>{
     note.innerHTML='<span class="spin"></span>Buscando canales parecidos y virales de su temática…';
     const lang=(ch.snippet.defaultLanguage||"es").slice(0,2);
     const after=new Date(Date.now()-30*864e5).toISOString().replace(/\.\d+Z$/,"Z");
+    let searchFail=false;
+    const safe=pr=>pr.catch(e=>{ if(e.reason==="nokey") throw e; searchFail=true; return {items:[]}; });
     const [sc, sv]=await Promise.all([
-      ytApi("search",{part:"snippet",type:"channel",q:query,maxResults:15,relevanceLanguage:lang}),
-      ytApi("search",{part:"snippet",type:"video",q:query,order:"viewCount",publishedAfter:after,maxResults:20,relevanceLanguage:lang})
+      safe(ytApi("search",{part:"snippet",type:"channel",q:query,maxResults:15,relevanceLanguage:lang})),
+      safe(ytApi("search",{part:"snippet",type:"video",q:query,order:"viewCount",publishedAfter:after,maxResults:20,relevanceLanguage:lang}))
     ]);
     const cids=[...new Set((sc.items||[]).map(i=>i.snippet.channelId).filter(id=>id!==ch.id))];
     const sims=cids.length?((await ytApi("channels",{part:"snippet,statistics",id:cids.join(",")})).items||[]):[];
@@ -448,10 +450,11 @@ $("#anForm").addEventListener("submit", async e=>{
     const vsubs={}; if(vc.length) ((await ytApi("channels",{part:"statistics",id:vc.join(",")})).items||[]).forEach(c=>vsubs[c.id]=+(c.statistics.subscriberCount||0));
     viral=viral.map(v=>normVid(v,vsubs[v.snippet.channelId])).filter(v=>v.cid!==ch.id).sort((a,b)=>b.views-a.views).slice(0,12);
     ANA={ch,subs,vids,kws,viral,sims};
-    renderAnalysis(); note.textContent="";
+    renderAnalysis();
+    note.innerHTML=searchFail?'<span class="err">Hoy se ha agotado el límite diario de búsquedas de YouTube: te enseño los datos del canal, pero los canales parecidos y los virales volverán a salir mañana (se reinicia sobre las 9:00).</span>':"";
   }catch(err){
     note.innerHTML=`<span class="err">${err.reason==="nokey"?"El analizador aún no está configurado (falta la clave de YouTube para web).":
-      err.reason==="quotaExceeded"?"Se ha agotado la cuota gratuita de YouTube de hoy. Vuelve a intentarlo mañana.":
+      (err.reason==="quotaExceeded"||err.reason==="rateLimitExceeded")?"Se ha agotado el límite gratuito de YouTube de hoy. Se reinicia sobre las 9:00 de la mañana; vuelve a intentarlo entonces o busca por @ en vez de por nombre.":
       "No se ha podido analizar el canal. Revisa el @ o el enlace y vuelve a intentarlo."}</span>`;
   }
 });
