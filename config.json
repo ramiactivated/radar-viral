@@ -1,0 +1,6 @@
+{
+  "handle": "@HectorRamirezLopez-b6m",
+  "channel_queries": ["estafas", "estafas online", "timos", "ciberseguridad para todos", "fraudes internet", "estafas whatsapp"],
+  "video_queries": [["estafa", {}], ["estafas", {"videoDuration": "short"}], ["timo telefónico", {}], ["ciberseguridad", {}], ["estafa whatsapp", {}], ["fraude bancario", {}], ["estafa", {"videoDuration": "short"}], ["cómo detectar estafas", {}]],
+  "keywords": ["estafa", "estafas", "estafad", "timos", "timador", "timo telef", "fraude", "phishing", "smishing", "ciberseg", "hacke", "bizum", "suplantac"]
+}

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar Viral</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F4FA; --surface:#FFFFFF; --ink:#16182E; --muted:#5E6280; --line:#E2E4EF;
+  --hot1:#FFB020; --hot2:#E8325F; --cool:#0E9A95; --chip:#E9EBF5;
+  --font-d:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-b:"DM Sans","Segoe UI",system-ui,sans-serif;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#101225;--surface:#1A1D36;--ink:#EEF0FA;--muted:#A3A7C4;--line:#2B2F4E;--chip:#24284A;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#101225;--surface:#1A1D36;--ink:#EEF0FA;--muted:#A3A7C4;--line:#2B2F4E;--chip:#24284A;color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button{font:inherit;color:inherit}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--hot2);outline-offset:2px;border-radius:8px}
+img{max-width:100%;display:block}
+
+.app{max-width:560px;margin:0 auto;padding:0 16px calc(96px + env(safe-area-inset-bottom,0px))}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:14px 0 10px}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand h1{font-family:var(--font-d);font-weight:800;font-size:28px;letter-spacing:-.02em;margin:0;line-height:1}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,var(--hot1),var(--hot2));margin-left:4px;vertical-align:middle;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,50,95,.5)}50%{box-shadow:0 0 0 8px rgba(232,50,95,0)}}
+.live{font-size:12px;color:var(--muted);text-align:right;line-height:1.3}
+.live b{color:var(--cool);font-weight:700}
+
+.seg{display:flex;background:var(--chip);border-radius:14px;padding:4px;margin-top:12px}
+.seg button{flex:1;border:0;background:transparent;padding:9px 6px;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(20,22,46,.12)}
+.row{display:flex;gap:8px;margin-top:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.row::-webkit-scrollbar{display:none}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-size:14px;white-space:nowrap;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.lead{font-family:var(--font-d);font-weight:700;font-size:20px;margin:20px 0 2px;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:14px;margin:0 0 12px}
+
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.item{display:grid;grid-template-columns:26px 112px 1fr;gap:12px;align-items:center;padding:10px 6px;border-radius:14px;cursor:pointer;background:transparent;border:0;text-align:left;width:100%}
+.item:hover{background:var(--surface)}
+.rank{font-family:var(--font-d);font-weight:800;font-size:20px;color:var(--muted);text-align:center}
+.thumb{width:112px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;position:relative;background:var(--chip)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb small{position:absolute;bottom:4px;right:4px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(0,0,0,.6);padding:0 5px;border-radius:4px}
+.t{font-weight:700;font-size:14.5px;line-height:1.3;margin:0 0 2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.meta{font-size:12.5px;color:var(--muted)}
+.heat{display:flex;align-items:center;gap:8px;margin-top:5px}
+.bar{flex:1;height:6px;border-radius:6px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--hot1),var(--hot2));transform-origin:left;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media (prefers-reduced-motion: reduce){.bar i,.dot{animation:none}}
+.vph{font-family:var(--font-d);font-weight:700;font-size:12.5px;white-space:nowrap}
+.more{display:block;margin:10px auto 0;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 18px;font-weight:700;cursor:pointer}
+
+/* hoja */
+.sheet-bg{position:fixed;inset:0;background:rgba(10,12,30,.5);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--surface);border-radius:22px 22px 0 0;padding:10px 20px calc(24px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);z-index:21;max-height:88vh;overflow-y:auto}
+.open .sheet-bg{opacity:1;pointer-events:auto}
+.open .sheet{transform:none}
+.grab{width:40px;height:5px;border-radius:5px;background:var(--line);margin:0 auto 14px}
+.sheet h2{font-family:var(--font-d);font-size:21px;line-height:1.25;margin:12px 0 4px;overflow-wrap:anywhere}
+.sheet .big{border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:var(--chip)}
+.sheet .big img{width:100%;height:100%;object-fit:cover}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+.stat{background:var(--bg);border-radius:12px;padding:10px}
+.stat b{display:block;font-family:var(--font-d);font-size:19px}
+.stat span{font-size:12px;color:var(--muted)}
+.cta{display:flex;gap:8px;margin-top:6px}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer;background:var(--ink);color:var(--bg);white-space:nowrap;text-decoration:none;text-align:center;flex:1}
+.btn.hot{background:linear-gradient(135deg,var(--hot1),var(--hot2));color:#fff}
+.btn.ghost{background:var(--chip);color:var(--ink)}
+.btn:disabled{opacity:.6;cursor:default}
+
+/* mi canal */
+.me{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:6px}
+.me h3{font-family:var(--font-d);font-size:20px;margin:0}
+.me .stats{margin:12px 0 0}
+.note{font-size:13px;color:var(--muted);margin-top:10px}
+.creator{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line);text-decoration:none}
+.av{width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--chip)}
+.av img{width:100%;height:100%;object-fit:cover}
+.creator b{overflow-wrap:anywhere}
+.match{font-family:var(--font-d);font-weight:800;font-size:18px;text-align:right}
+.match small{display:block;font-family:var(--font-b);font-weight:500;font-size:11px;color:var(--muted)}
+.desc{font-size:12.5px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ratio{color:var(--cool);font-weight:700}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:20px;text-align:center;color:var(--muted);margin-top:12px}
+.empty b{display:block;color:var(--ink);font-family:var(--font-d);font-size:18px;margin-bottom:4px}
+
+/* ideas */
+.box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.search{display:flex;gap:8px}
+.search input{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;min-width:0}
+.idea{padding:12px 0;border-top:1px solid var(--line)}
+.idea:first-child{border-top:0;padding-top:0}
+.idea b{display:block;font-size:15.5px;margin-bottom:3px}
+.idea p{margin:0;font-size:14px;color:var(--muted)}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs nav{max-width:560px;margin:0 auto;display:flex}
+.tabs a{flex:1;text-align:center;padding:10px 0 12px;text-decoration:none;color:var(--muted);font-size:12.5px;font-weight:700}
+.tabs a span{display:block;font-size:22px;line-height:1.2}
+.tabs a[aria-current="page"]{color:var(--hot2)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Radar Viral<span class="dot" aria-hidden="true"></span></h1>
+      <div class="live"><b>Datos reales de YouTube</b><br><span id="upd"></span></div>
+    </div>
+  </header>
+
+  <section id="v-tendencias">
+    <div class="seg" role="group" aria-label="País">
+      <button data-country="ES" aria-pressed="true">🇪🇸 España</button>
+      <button data-country="US" aria-pressed="false">🇺🇸 EE. UU.</button>
+    </div>
+    <div class="seg" role="group" aria-label="Formato">
+      <button data-format="all" aria-pressed="true">Todo</button>
+      <button data-format="video" aria-pressed="false">Vídeos</button>
+      <button data-format="short" aria-pressed="false">Shorts</button>
+    </div>
+    <div class="row" id="cats" role="group" aria-label="Categoría"></div>
+    <p class="lead" id="trendTitle"></p>
+    <p class="sub">Vídeos en tendencia ordenados por visitas por hora desde que se subieron.</p>
+    <ul class="list" id="trends"></ul>
+    <button class="more" id="moreT" hidden>Ver más</button>
+  </section>
+
+  <section id="v-canal" hidden>
+    <div class="seg" role="group" aria-label="Plataforma">
+      <button data-plat="yt" aria-pressed="true">YouTube</button>
+      <button data-plat="ig" aria-pressed="false">Instagram</button>
+      <button data-plat="tt" aria-pressed="false">TikTok</button>
+    </div>
+    <div id="platYT">
+      <div class="me" id="meCard"></div>
+      <p class="lead">Creadores parecidos a ti</p>
+      <p class="sub">Canales de tu temática, ordenados por afinidad con tu nicho.</p>
+      <div id="creators"></div>
+      <p class="lead">Virales de tu tipo</p>
+      <p class="sub">Los vídeos de estafas y ciberseguridad con más visitas del último mes.</p>
+      <div class="seg" role="group" aria-label="Formato del nicho">
+        <button data-nf="all" aria-pressed="true">Todo</button>
+        <button data-nf="video" aria-pressed="false">Vídeos</button>
+        <button data-nf="short" aria-pressed="false">Shorts</button>
+      </div>
+      <ul class="list" id="niche" style="margin-top:8px"></ul>
+    </div>
+    <div id="platOther" hidden>
+      <div class="empty"><b id="otherName"></b>Esta red no permite consultar sus datos a aplicaciones pequeñas sin un acuerdo de pago, así que aquí todavía no podemos mostrar datos reales. De momento, el análisis funciona con YouTube.</div>
+    </div>
+  </section>
+
+</div>
+
+<div>
+  <div class="sheet-bg" id="sheetBg"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <div class="grab"></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <nav aria-label="Secciones">
+    <a href="#tendencias" data-view="tendencias"><span aria-hidden="true">📈</span>Tendencias</a>
+    <a href="#canal" data-view="canal"><span aria-hidden="true">🔎</span>Mi canal</a>
+  </nav>
+</div>
+
+<script>
+const DATA = __DATA__;
+const st = {country:"ES", format:"all", cat:"Todas", limit:20, nf:"all"};
+const $ = s => document.querySelector(s);
+const esc = s => { const d=document.createElement("div"); d.textContent=s ?? ""; return d.innerHTML; };
+const fmt = n => n==null ? "—" : n>=1e6 ? (n/1e6).toFixed(1).replace(".0","").replace(".",",")+" M" : n>=1e3 ? Math.round(n/1e3)+" K" : String(n);
+const ago = h => h<48 ? `hace ${h} h` : `hace ${Math.round(h/24)} días`;
+const FLAG = {ES:"🇪🇸",MX:"🇲🇽",US:"🇺🇸",AR:"🇦🇷",GB:"🇬🇧",CO:"🇨🇴",PE:"🇵🇪",CL:"🇨🇱"};
+const yt = id => `https://www.youtube.com/watch?v=${id}`;
+
+$("#upd").textContent = "Actualizado " + new Date(DATA.updated).toLocaleString("es-ES",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+
+/* ---------- tendencias ---------- */
+function cats(){
+  const counts = {};
+  DATA.trends[st.country].forEach(v => counts[v.cat]=(counts[v.cat]||0)+1);
+  const list = ["Todas", ...Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(x=>x[0])];
+  if(!list.includes(st.cat)) st.cat="Todas";
+  $("#cats").innerHTML = list.map(c=>`<button class="chip" data-cat="${esc(c)}" aria-pressed="${st.cat===c}">${esc(c)}</button>`).join("");
+}
+function row(v, i, max, extra=""){
+  return `<li><button class="item" data-vid="${v.id}">
+    <span class="rank">${i+1}</span>
+    <span class="thumb">${v.img?`<img src="${v.img}" alt="" loading="lazy">`:""}<small>${v.f==="short"?"Short":"Vídeo"}</small></span>
+    <span><p class="t">${esc(v.t)}</p>
+      <span class="meta">${esc(v.c)} · ${fmt(v.views)} visitas · ${ago(v.h)}</span>
+      ${extra || `<span class="heat"><span class="bar"><i style="width:${Math.max(6,v.vph/max*100)}%;animation-delay:${Math.min(i,12)*50}ms"></i></span><span class="vph">${fmt(v.vph)}/h</span></span>`}
+    </span></button></li>`;
+}
+function renderTrends(){
+  const all = DATA.trends[st.country];
+  const list = all.filter(v => st.format==="all" || v.f===st.format).filter(v => st.cat==="Todas" || v.cat===st.cat).sort((a,b)=>b.vph-a.vph);
+  const max = Math.max(...all.map(v=>v.vph));
+  $("#trendTitle").textContent = st.country==="ES" ? "Lo que más rápido crece en España" : "Lo que más rápido crece en EE. UU.";
+  $("#trends").innerHTML = list.length ? list.slice(0, st.limit).map((v,i)=>row(v,i,max)).join("")
+    : `<li class="sub" style="padding:16px 6px">No hay vídeos en tendencia con estos filtros. Prueba con otra categoría o formato.</li>`;
+  $("#moreT").hidden = list.length <= st.limit;
+}
+
+/* ---------- mi canal ---------- */
+function renderMe(){
+  const m = DATA.me;
+  $("#meCard").innerHTML = `<h3>${esc(m.name)}</h3><div class="meta">${esc(m.handle)}</div>
+    <div class="stats">
+      <div class="stat"><b>${fmt(m.subs)}</b><span>suscriptores</span></div>
+      <div class="stat"><b>${fmt(m.views)}</b><span>visitas</span></div>
+      <div class="stat"><b>${m.videos}</b><span>vídeos</span></div>
+    </div>
+    <p class="note">Los datos se actualizan solos cada mañana.</p>`;
+  $("#creators").innerHTML = DATA.channels.map(c=>`
+    <a class="creator" href="https://www.youtube.com/channel/${c.id}" target="_blank" rel="noopener">
+      <span class="av">${c.img?`<img src="${c.img}" alt="">`:""}</span>
+      <span><b>${esc(c.n)}</b> ${FLAG[c.country]||""}
+        <span class="meta" style="display:block">${fmt(c.subs)} subs · ${c.videos} vídeos · ${fmt(c.views)} visitas</span>
+        <span class="desc">${esc(c.d)}</span></span>
+      <span class="match">${c.m}%<small>afinidad</small></span>
+    </a>`).join("");
+  renderNiche();
+}
+function renderNiche(){
+  const list = DATA.niche.filter(v => st.nf==="all" || v.f===st.nf);
+  $("#niche").innerHTML = list.length ? list.map((v,i)=>row(v,i,1,
+    `<span class="meta" style="display:block;margin-top:3px">${v.subs?`Visitas = <span class="ratio">${String(v.ratio>=10?Math.round(v.ratio):v.ratio).replace(".",",")}×</span> sus suscriptores · `:""}${esc(v.cat)}</span>`)).join("")
+    : `<li class="sub" style="padding:16px 6px">No hay vídeos con este formato.</li>`;
+}
+
+/* ---------- hoja de vídeo ---------- */
+function findVid(id){
+  return [...DATA.trends.ES, ...DATA.trends.US, ...DATA.niche].find(v=>v.id===id);
+}
+function openVid(id){
+  const v = findVid(id); if(!v) return;
+  const eng = v.views ? ((v.likes+v.com)/v.views*100).toFixed(1).replace(".",",")+" %" : "—";
+  $("#sheetBody").innerHTML = `
+    <div class="big">${v.img?`<img src="${v.img}" alt="">`:""}</div>
+    <h2 id="sTitle">${esc(v.t)}</h2>
+    <div class="meta">${esc(v.c)}${v.subs?` · ${fmt(v.subs)} suscriptores`:""} · ${esc(v.cat)} · ${v.f==="short"?"Short":"Vídeo"}</div>
+    <div class="stats">
+      <div class="stat"><b>${fmt(v.views)}</b><span>visitas</span></div>
+      <div class="stat"><b>${fmt(v.vph)}</b><span>visitas/hora</span></div>
+      <div class="stat"><b>${eng}</b><span>interacción</span></div>
+      <div class="stat"><b>${fmt(v.likes)}</b><span>me gusta</span></div>
+      <div class="stat"><b>${fmt(v.com)}</b><span>comentarios</span></div>
+      <div class="stat"><b>${v.h<48?v.h+" h":Math.round(v.h/24)+" d"}</b><span>publicado</span></div>
+    </div>
+    <div class="cta"><a class="btn hot" href="${yt(v.id)}" target="_blank" rel="noopener">Ver en YouTube</a><button class="btn ghost" id="closeSheet">Cerrar</button></div>`;
+  document.body.classList.add("open");
+  $("#closeSheet").addEventListener("click", closeSheet);
+}
+function closeSheet(){ document.body.classList.remove("open"); }
+
+/* ---------- navegación y eventos ---------- */
+const VIEWS=["tendencias","canal"];
+function route(){
+  const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "tendencias";
+  VIEWS.forEach(n => $("#v-"+n).hidden = n!==v);
+  document.querySelectorAll(".tabs a").forEach(a => a.dataset.view===v ? a.setAttribute("aria-current","page") : a.removeAttribute("aria-current"));
+  window.scrollTo(0,0);
+}
+window.addEventListener("hashchange", route);
+const press = (sel, el) => document.querySelectorAll(sel).forEach(b=>b.setAttribute("aria-pressed", b===el));
+document.addEventListener("click", e=>{
+  let b;
+  if(b=e.target.closest("[data-country]")){ st.country=b.dataset.country; st.limit=20; press("[data-country]",b); cats(); renderTrends(); }
+  else if(b=e.target.closest("[data-format]")){ st.format=b.dataset.format; st.limit=20; press("[data-format]",b); renderTrends(); }
+  else if(b=e.target.closest("[data-cat]")){ st.cat=b.dataset.cat; st.limit=20; cats(); renderTrends(); }
+  else if(b=e.target.closest("[data-nf]")){ st.nf=b.dataset.nf; press("[data-nf]",b); renderNiche(); }
+  else if(b=e.target.closest("[data-plat]")){ press("[data-plat]",b); const yt=b.dataset.plat==="yt";
+    $("#platYT").hidden=!yt; $("#platOther").hidden=yt; $("#otherName").textContent=b.textContent+" no disponible todavía"; }
+  else if(b=e.target.closest(".item")){ openVid(b.dataset.vid); }
+});
+$("#moreT").addEventListener("click", ()=>{ st.limit+=20; renderTrends(); });
+$("#sheetBg").addEventListener("click", closeSheet);
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeSheet(); });
+
+cats(); renderTrends(); renderMe(); route();
+</script>
+</body>
+</html>
